@@ -42,7 +42,7 @@ INFTY = 10000
 SLEEPTIME = 0
 clock = pygame.time.Clock()
 clients = list()
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='battle.log')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='logger.log')
 logger = logging.getLogger()
 
 ch = logging.StreamHandler() #日志输出到屏幕控制台
@@ -461,7 +461,7 @@ def socketToMove(conn,n, ans, S):
     message = str(S.map) + '|' + str(n)
     conn.sendall(message.encode('UTF-8'))
     try:
-        conn.settimeout(15)
+        conn.settimeout(150)
         data, address = conn.recvfrom(1024)
     except socket.error as e:
         logger.info(str(e))
@@ -495,7 +495,7 @@ def outputResult():
             for j in range(playernum - i - 1):
                 if (rank[j].wins < rank[j + 1].wins):
                     rank[j], rank[j + 1] = rank[j + 1], rank[j]
-    with open('BATTLERESULT.txt',mode='w', encoding='utf8') as f:
+    with open('RESULT.txt',mode='w', encoding='utf8') as f:
         for c in rank:
             f.writelines(str(c.ID) + '  WINTIMES :  ' + str(c.wins)+str('\n'))
     logger.info('WRITE INTO BATTLERESULT')
