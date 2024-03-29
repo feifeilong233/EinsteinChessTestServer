@@ -542,13 +542,13 @@ def startgame(port, n, detail=True):
                 resetInfo()
                 #result = playGame(Red, Blue, detail)  # 游戏开始，返回比赛结果
                 result = battle(clients[i], clients[j], detail)
+                if result == REDWIN:
+                    clients[i].wins = clients[i].wins + 1
+                else:
+                    clients[j].wins = clients[j].wins + 1
                 if detail:
                     # pass
                     drawWinScreen(result)
-                    if result == REDWIN:
-                        clients[i].wins = clients[i].wins+1
-                    else:
-                        clients[j].wins = clients[j].wins+1
                     # app.refresh()
 
                 RESULT[result - 1] += 1  # 更新比分
@@ -643,7 +643,7 @@ def battle(client0, client1, detail):
 
 if __name__ == '__main__':
     # 测试局数
-    cnt = 10
+    cnt = 100
     result = startgame(port=50006, n=cnt, detail=False)
     outputResult()
     input('enter any key to stop\n')
