@@ -1,2 +1,0 @@
-H-UCT  WINTIMES :  8
-Neural-UCT  WINTIMES :  2
