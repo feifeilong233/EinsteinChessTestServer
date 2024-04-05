@@ -101,7 +101,8 @@ def init():
               [1, 6, 3, 2, 4, 5],
               [6, 2, 3, 1, 5, 4],
               [1, 6, 3, 4, 2, 5],
-              [1, 5, 4, 6, 3, 2]
+              [1, 5, 4, 6, 3, 2],
+              [6, 1, 3, 2, 5, 4],
               ]
     resetInfo()
     Lyr = []
@@ -187,7 +188,7 @@ def drawGameScreen(conn0, conn1):  # 游戏比赛界面
 
     drawText('RED : '+str(RESULT[0]), font, RED, screen, 6, 7)
     drawText('BLUE : '+str(RESULT[1]), font, BLUE, screen, 6.5, 7)
-    
+
     if(sum(RESULT)):
         RedWinRate = round(100*float(RESULT[0])/sum(RESULT), 2)
         BlueWinRate = round(100*float(RESULT[1])/sum(RESULT), 2)
@@ -343,11 +344,11 @@ def getNewMap():  # 换新图
     r = random.sample(maplib, 1)[0]
     b = random.sample(maplib, 1)[0]
     newMap = [
-        [r[0], r[3],  r[5],     0,    0],
-        [r[1], r[4],     0,     0,    0],
-        [r[2],   0,     0,     0, b[2]+6],
-        [0,   0,     0, b[4]+6, b[1]+6],
-        [0,   0, b[5]+6, b[3]+6, b[0]+6]
+        [6, 2, 4, 0, 0],
+        [1, 5, 0, 0, 0],
+        [3, 0, 0, 0, b[2] + 6],
+        [0, 0, 0, b[4] + 6, b[1] + 6],
+        [0, 0, b[5] + 6, b[3] + 6, b[0] + 6]
     ]
     return newMap
 
@@ -629,8 +630,8 @@ def battle(client0, client1, detail):
             lastInfo = [n, p, moveTo]
             if moved:
                 mapNeedRedraw = True
-        if mapNeedRedraw and detail:  # 如果需要重绘棋局界面，则：
-            drawGameScreen(client0, client1)  # 重绘棋局界面
+        if mapNeedRedraw:  # 如果需要重绘棋局界面，则：
+            # drawGameScreen(client0, client1)  # 重绘棋局界面
             logger.info(str(S.map) + ' |id: ' + str(p) + ' |move : ' + moveTo)
             pass
         result = isEnd(S)  # 检查游戏是否结束，返回游戏结果
