@@ -133,7 +133,8 @@ def init():
               [1, 6, 3, 2, 4, 5],
               [6, 2, 3, 1, 5, 4],
               [1, 6, 3, 4, 2, 5],
-              [1, 5, 4, 6, 3, 2]
+              [1, 5, 4, 6, 3, 2],
+              [6, 1, 3, 5, 4, 2]
               ]
     resetInfo()
     Lyr = []
@@ -375,11 +376,11 @@ def getNewMap():  # 换新图
     r = random.sample(maplib, 1)[0]
     b = random.sample(maplib, 1)[0]
     newMap = [
-        [r[0], r[3],  r[5],     0,    0],
-        [r[1], r[4],     0,     0,    0],
-        [r[2],   0,     0,     0, b[2]+6],
-        [0,   0,     0, b[4]+6, b[1]+6],
-        [0,   0, b[5]+6, b[3]+6, b[0]+6]
+        [6, 2, 4, 0, 0],
+        [1, 5, 0, 0, 0],
+        [3, 0, 0, 0, b[2] + 6],
+        [0, 0, 0, b[4] + 6, b[1] + 6],
+        [0, 0, b[5] + 6, b[3] + 6, b[0] + 6]
     ]
     return newMap
 
@@ -675,7 +676,7 @@ def battle(client0, client1, detail):
 
 if __name__ == '__main__':
     # 测试局数
-    cnt = 100
+    cnt = 200
     result = startgame(port=50006, n=cnt)
     outputResult()
     input('enter any key to stop\n')

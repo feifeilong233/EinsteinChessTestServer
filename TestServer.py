@@ -102,7 +102,9 @@ def init():
         'REDWIN': pygame.transform.scale(pygame.image.load('picture/white/REDWIN.png').convert(), WINSIZE),
     }
     # 布局库
-    maplib = [[6, 2, 4, 1, 5, 3],
+    maplib = [
+        [6, 1, 3, 5, 4, 2],
+        [6, 2, 4, 1, 5, 3],
               [6, 5, 2, 1, 4, 3],
               [1, 5, 4, 6, 2, 3],
               [1, 6, 3, 5, 2, 4],
@@ -355,7 +357,7 @@ def resetInfo():  # 重置比赛信息
 
 def getNewMap():  # 换新图
     r = random.sample(maplib, 1)[0]
-    b = random.sample(maplib, 1)[0]
+    b = maplib[0]
     newMap = [
         [r[0], r[3],  r[5],     0,    0],
         [r[1], r[4],     0,     0,    0],
@@ -862,7 +864,7 @@ def socketToMove(conn,n, ans, S):
     message = str(S.map) + '|' + str(n)
     conn.sendall(message.encode('UTF-8'))
     try:
-        conn.settimeout(5)
+        conn.settimeout(150)
         data, address = conn.recvfrom(1024)
     except socket.error as e:
         logger.info(str(e))
@@ -1004,7 +1006,7 @@ def startGame(Red, Blue, n, filename, detail=True):
         pygame.display.update()
 
         if cnt % 5 == 0:
-            print(sum(RESULT),'\t',round(100*RESULT[0]/sum(RESULT),4))
+            logger.info(f"{sum(RESULT)}\t{round(100*RESULT[0]/sum(RESULT),4)}")
 
     if Blue == 'Socket' or Red == 'Socket':
         try:
