@@ -590,7 +590,8 @@ def startgame(port, n, detail=True):
                 rateline.append(float(RESULT[0]) / sum(RESULT))
                 if count % 5 == 0:
                     # pass
-                    print(sum(RESULT), '\t', round(100 * RESULT[0] / sum(RESULT), 4))
+                    # print(sum(RESULT), '\t', round(100 * RESULT[0] / sum(RESULT), 4))
+                    logger.info(f"{sum(RESULT)}\t{round(100 * RESULT[0] / sum(RESULT), 4)}")
     for i in range(playernum):
         try:
             # logger.info('rank : '+str(i)+'  '+ clients[i].ID + ' wins '+str( clients[i].wins))
