@@ -2,6 +2,9 @@ import pygame
 import os
 import sys
 import random
+import time
+import gc
+import numpy as np
 import copy
 import socket
 import logging
@@ -671,6 +674,295 @@ def redByMinimax(ans, k=2.2, lam=5, STEP=2):
             if theValue > maxValue:
                 maxValue,bestp,bestm = theValue,s.pPawn,s.pMove
     return bestp,bestm
+
+def getTheNextStepStatus_updata(SL):  # 根据现局面，获得所有合法的后续局面
+    NL = []
+    if SL[0].pPawn > 6:
+        move = ['right', 'down', 'rightdown']
+        o = 0
+    else:
+        move = ['left', 'up', 'leftup']
+        o = 6
+    for s in SL:
+        i = random.randint(1, 6)
+        n, ans = selectPawn(s, i + o)
+        for p in ans:
+            for m in move:
+                newStatus = tryMakeMove(p, m, s)
+                if newStatus is not False:
+                    newStatus.pDice = i
+                    NL.append(newStatus)
+                del newStatus
+    return NL
+
+def getScorered(S, k=2.2, lam=5):  # 计算此时蓝方的局面估值
+    redToBlueOfThread, blueToRedOfThread = getThread(S)
+    expRed = expBlue = 0
+    for i in range(0, 12):
+        if i < 6:
+            expRed += S.value[i]
+        else:
+            expBlue += S.value[i]
+
+    theValue = lam * (k * expBlue - expRed) - redToBlueOfThread + blueToRedOfThread
+    return theValue
+
+def getDemoValueblue(S, k=2.2, lam=5):
+    move = ['right', 'down', 'rightdown']
+    exp = 0
+    for p in range(1, 7):
+        if p in S.pawn:
+            theValue = maxValue = -INFTY
+            for m in move:
+                newStatus = tryMakeMove(p, m, S)
+                if newStatus is not False:
+                    theValue = getScorered(newStatus)
+                    if theValue > maxValue:
+                        maxValue = theValue
+            exp += S.pro[p - 1] * maxValue
+    return exp
+
+def getScoreblue(S, k=2.2, lam=5):  # 计算此时蓝方的局面估值
+    redToBlueOfThread, blueToRedOfThread = getThread(S)
+    expRed = expBlue = 0
+    for i in range(0, 12):
+        if i < 6:
+            expRed += S.value[i]
+        else:
+            expBlue += S.value[i]
+    theValue = lam * (k * expRed - expBlue) + redToBlueOfThread - blueToRedOfThread
+    return theValue
+
+def getDemoValuered(S, k=2.2, lam=5):
+    move = ['left', 'up', 'leftup']
+    exp = 0
+    for p in range(7, 12):
+        if p in S.pawn:
+            theValue = maxValue = -INFTY
+            for m in move:
+                newStatus = tryMakeMove(p, m, S)
+                if newStatus is not False:
+                    theValue = getScoreblue(newStatus)
+                    if theValue > maxValue:
+                        maxValue = theValue
+            exp += S.pro[p - 1] * maxValue
+    return exp
+
+def SoftMax(x):
+    f_x = np.exp(x) / np.sum(np.exp(x))
+    return f_x
+
+def run_simulationWithDemo(SL, games, c=1, max_actions=1000):  # 红方
+    global winsr
+    global playsr
+    global S
+    global Vsr
+    global Vsr_all
+    global recorder
+    movetored = ['right', 'down', 'rightdown']
+    movetoblue = ['left', 'up', 'leftup']
+    move_dict = {'right': 0, 'down': 1, 'rightdown': 2}
+    moveblue_movered = {'left': 'right', 'up': 'down', 'leftup': 'rightdown'}
+    Qsr = {}
+    availables = SL  # 合法后继
+    visited_states = set()  # 以访问节点，判断是否拓展
+    visited_red = set()
+    playsr[S] += 1
+
+    move = availables[0]
+    for moved in availables:
+        if ((winsr.get(move, 0) / (playsr.get(move, 1))) + 0.85 * (
+                2 * playsr.get(S, 0) / (playsr.get(move, 1))) ** 0.5) < (
+                (winsr.get(moved, 0) / (playsr.get(moved, 1))) + 0.85 * (
+                2 * playsr.get(S, 0) / (playsr.get(moved, 1))) ** 0.5):
+            move = moved
+
+    The_total_choose = move
+
+    move_choose = copy.deepcopy(The_total_choose)
+
+    # 激活已选节点在playsr中，winsr中
+    if playsr.get(The_total_choose, -1) == -1:
+        playsr[The_total_choose] = 0
+        winsr[The_total_choose] = 0
+    visited_states.add(The_total_choose)
+    k = 0
+    if move_choose is not False:
+        k = isEnd(move_choose)
+        if k == False:
+            for t in range(1, max_actions):
+
+                NL = []
+                NL.append(move_choose)
+                availables = getTheNextStepStatus_updata(NL)
+                del NL
+                for move in availables:
+                    if move is not False:
+                        k = isEnd(move)
+                        if k:
+                            move_otherside = move
+                            break
+                if k:
+                    break
+                max_problis = []
+                consider = {}
+                max_consider = []
+                for move in availables:
+                    theValue = getDemoValueblue(move)
+                    consider[move] = theValue
+                    max_problis.append(theValue)
+                    max_consider.append(move)
+
+                # max_problis = torch.tensor(max_problis)
+                # print('torch_softmax',torch.softmax(max_problis/temperature,0))
+                max_problis = np.array(max_problis)
+                # print('SoftMax',SoftMax(max_problis / temperature))
+                move_otherside = random.choices(max_consider, SoftMax(max_problis / temperature), k=1)
+                move_otherside = move_otherside[0]
+                # print(np.array(move_choose.map))
+                # move_otherside = choice(availables)  # 对面的走法运用模拟出来的UCT
+                visited_states.add(move_otherside)
+                if playsr.get(move_otherside, -1) == -1:
+                    playsr[move_otherside] = 0
+                    winsr[move_otherside] = 0
+                if move_otherside is not False:
+                    k = isEnd(move_otherside)
+                    if k:
+                        break
+                del max_consider
+                NL = []
+                NL.append(move_otherside)
+                availables = getTheNextStepStatus_updata(NL)
+                del NL
+
+                for move in availables:
+                    if move is not False:
+                        k = isEnd(move)
+                        if k:
+                            move_choose = move
+                            break
+                if k:
+                    break
+                consider = {}
+                max_problis = []
+                max_consider = []
+                for move in availables:
+                    theValue = getDemoValuered(move)
+                    consider[move] = theValue
+                    max_problis.append(theValue)
+                    max_consider.append(move)
+                # max_problis = torch.tensor(max_problis)
+                max_problis = np.array(max_problis)
+                move_choose = random.choices(max_consider, SoftMax(max_problis / temperature), k=1)
+                move_choose = move_choose[0]
+                visited_red.add(move_choose)
+                # print(np.array(move_choose.map))
+                # 激活已选节点在playsr中，winsr中
+                if playsr.get(move_choose, -1) == -1:
+                    playsr[move_choose] = 0
+                    winsr[move_choose] = 0
+                visited_states.add(move_choose)
+                del max_consider
+                k = 0
+                if move_choose is not False:
+                    k = isEnd(move_choose)
+                    if k:
+                        break
+
+                # print(np.array(move_choose.map))
+                # NL = []
+                # NL.append(move_choose)
+                # availables = getTheNextStepStatus(NL)  # 更新合法后继
+                # del NL
+                """
+                    此处是要更新新的局面数据，以传入网络进行估值
+                """
+
+                """
+                    把移动过的点加入进访问元组中，方便日后查询
+                """
+
+    for move in visited_states:
+        playsr[move] += 1
+        if k == 1:
+            winsr[move] += 1
+
+    del visited_states
+    del visited_red
+    return playsr, winsr
+
+def redByUctPlusDemo(ans):
+    global playsr
+    global winsr
+    global Vsr
+    global recorder
+    global Vsr_all
+    print("red can move ", ans)
+    calculation_time = float(50)
+    bestp = 0
+    bestm = ''
+    move_dict = {'right': 0, 'down': 1, 'rightdown': 2}
+    move = ['right', 'down', 'rightdown']
+    Vsr = {}
+    Vsr_all = {}
+    recorder = {}
+    Tempt = {}
+    SL = []  # 当前局面下合法的后续走法
+    for p in ans:
+        for m in move:
+            newStatus = tryMakeMove(p, m, S)
+            if newStatus is not False:
+                SL.append(newStatus)
+                if isEnd(newStatus):
+                    return p, m
+                del newStatus
+    if len(SL) == 1:
+        return SL[0].pPawn, SL[0].pMove  # 如只有一个合法后续，直接返回
+    games = 0
+    begin = time.time()
+    playsr[S] = 0
+
+    while time.time() - begin < calculation_time:  # time.time() - begin < calculation_time
+        playsr, winsr = run_simulationWithDemo(SL, games, 1, 1000)
+        games += 1
+        if games % 120 == 0:
+            for move in SL:
+                Tempt[move] = winsr.get(move, 0) / playsr.get(move, 1)
+                # file.write(str(Tempt[move]) + ' ')
+            # print(Tempt)
+            # file.write('\n')
+    playsr[S] = 0
+    # file.close()
+    for move in SL:
+        Tempt[move] = winsr.get(move, 0) / playsr.get(move, 1)
+    # for move in SL:
+    #     Tempt[move] = playsr.get(move,0)
+    move_choose = max(Tempt, key=lambda x: Tempt[x])
+
+    for move in SL:
+        if move != move_choose and Tempt[move] == Tempt[move_choose] and move.pMove == 'rightdown':
+            move_choose = move
+    bestp = move_choose.pPawn
+    bestm = move_choose.pMove
+    # bestp, bestm = select_one_move_nerual(SL)
+    for move in SL:
+        print(playsr.get(move, 0))
+    for move1 in SL:
+        print(Tempt.get(move1, 0))
+    # for item in consider.values():
+    #     print("The total C are", item)
+    # for move in SL:
+    #     print("The output of net are", for_print.get(move, 0))
+    print('we have searched for ', games)
+    print(bestp, bestm)
+
+    del Vsr
+    del Vsr_all
+    del recorder
+    del SL
+    gc.collect()
+    return bestp, bestm
+
 def getTheNextStepStatus(SL):
     NL = []
     if SL[0].pPawn > 6:
@@ -916,6 +1208,8 @@ def playGame(Red, Blue, detail, conn):
         if COUNT % 2 == 0:
             if Red == 'BetaCat1.0':
                 p, moveTo = redByMinimax(ans)
+            if Red == 'Uct':
+                p, moveTo = redByUctPlusDemo(ans)
             if Red == 'Socket':
                 try:
                     p, moveTo = socketToMove(conn=conn,n=n, ans=ans, S=S)
@@ -970,6 +1264,8 @@ def playGame(Red, Blue, detail, conn):
 
 def startGame(Red, Blue, n, filename, detail=True):
     global COUNT
+    global playsr
+    global winsr
     init()
     if detail:
         drawStartScreen()  # 游戏开始界面
@@ -990,7 +1286,12 @@ def startGame(Red, Blue, n, filename, detail=True):
     print('   connected')
     while cnt:
         resetInfo()
+        playsr = {}
+        winsr = {}
         result = playGame(Red, Blue, detail, conn)  # 游戏开始，返回比赛结果
+        gc.collect()
+        del winsr
+        del playsr
         if detail:
             #pass
             drawWinScreen(result)
@@ -1020,18 +1321,19 @@ def startGame(Red, Blue, n, filename, detail=True):
 if __name__ == '__main__':
     '''
     可选测试对象
-    Red  ：BetaCat1.0 | Socket |
+    Red  ：BetaCat1.0 | Socket | Uct
     Blue ：Demo | Socket '
     BetaCat1.0 Demo 分别为红方或蓝方AI
     Socket 为用户选择红方或蓝方连接客户端，不能同时连接客户端
     当前示例表示红方为服务器，蓝方为客户端
     首先启动此程序
     '''
-    Red = 'BetaCat1.0'
+    Red = 'Uct'
     Blue = 'Socket'
     filename = os.getcwd() + "\\data\\" + Red + 'Vs' + Blue
     print(filename)
     # 测试局数
-    cnt = 500
+    cnt = 200
+    temperature = 0.1
     result = startGame(Red, Blue, cnt, filename, detail=True)
     input('wait')
