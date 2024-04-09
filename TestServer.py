@@ -898,7 +898,7 @@ def redByUctPlusDemo(ans):
     global recorder
     global Vsr_all
     print("red can move ", ans)
-    calculation_time = float(50)
+    calculation_time = float(15)
     bestp = 0
     bestm = ''
     move_dict = {'right': 0, 'down': 1, 'rightdown': 2}
