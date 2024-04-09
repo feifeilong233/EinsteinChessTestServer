@@ -645,7 +645,7 @@ def battle(client0, client1, detail):
 
 if __name__ == '__main__':
     # 测试局数
-    cnt = 300
+    cnt = 200
     result = startgame(port=50006, n=cnt, detail=False)
     outputResult()
     input('enter any key to stop\n')
