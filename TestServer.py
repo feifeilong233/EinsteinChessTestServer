@@ -37,7 +37,6 @@ UP = 'up'
 DOWN = 'down'
 LEFTUP = 'leftup'
 RIGHTDOWN = 'rightdown'
-ID = 'ID'
 RESULT = [0, 0]  # 记录比赛结果
 WINSIZE = (530, 130)  # 显示比赛结果窗口大小
 INFTY = 10000
@@ -149,7 +148,7 @@ def waitForPlayerToPressKey():  # 等待按键
 def drawStartScreen():  # 开始界面
     screen.fill(WHITE)
     loadImage("AYST.png", (190, 40), AYSTSIZE)
-    drawText('127.0.0.1:50006 IS WAITING FOR CONNECTION', font, TEXTCOLOR, screen, 6.5, 2)
+    drawText('127.0.0.1:50007 IS WAITING FOR CONNECTION', font, TEXTCOLOR, screen, 6.5, 2)
     pygame.display.update()
 
 
@@ -209,7 +208,7 @@ def drawGameScreen(Red, Blue):  # 游戏比赛界面
     drawText('RED : '+str(RESULT[0]), font, RED, screen, 6, 7)
     drawText('BLUE : '+str(RESULT[1]), font, BLUE, screen, 6.5, 7)
     drawText('RED : ' + Red, font,RED,  screen, 7.5, 2)
-    drawText('BLUE: ' + Blue, font,BLUE,  screen, 8, 2)
+    drawText('BLUE: ' + ID, font,BLUE,  screen, 8, 2)
     if(sum(RESULT)):
         RedWinRate = round(100*float(RESULT[0])/sum(RESULT), 2)
         BlueWinRate = round(100*float(RESULT[1])/sum(RESULT), 2)
@@ -898,7 +897,7 @@ def redByUctPlusDemo(ans):
     global recorder
     global Vsr_all
     print("red can move ", ans)
-    calculation_time = float(15)
+    calculation_time = float(5)
     bestp = 0
     bestm = ''
     move_dict = {'right': 0, 'down': 1, 'rightdown': 2}
@@ -1214,13 +1213,13 @@ def playGame(Red, Blue, detail, conn):
                 try:
                     p, moveTo = socketToMove(conn=conn,n=n, ans=ans, S=S)
                     if p == -1:
-                        logger.info('RESULT : BLUEWIN')
+                        logger.info('RESULT : ' + ID + 'WIN')
                         return BLUEWIN
                 except socket.error as e:
-                    logger.info('RESULT : BLUEWIN')
+                    logger.info('RESULT : ' + ID + 'WIN')
                     return BLUEWIN
                 except ValueError as e1:
-                    logger.info('RESULT : BLUEWIN')
+                    logger.info('RESULT : ' + ID + 'WIN')
                     return BLUEWIN
 
         if COUNT % 2 == 1:
@@ -1236,7 +1235,7 @@ def playGame(Red, Blue, detail, conn):
                     return REDWIN
                 except ValueError as e1:
                     logger.info('RESULT : REDWIN')
-                    return BLUEWIN
+                    return REDWIN
 
 
             if Blue == 'Demo':
@@ -1258,7 +1257,7 @@ def playGame(Red, Blue, detail, conn):
 
         if result:
             lastInfo = []
-            logger.info('RESULT : REDWIN' if result == 1 else 'RESULT : BLUEWIN')
+            logger.info('RESULT : REDWIN' if result == 1 else 'RESULT : ' + ID + 'WIN')
             return result
 
 
@@ -1275,10 +1274,10 @@ def startGame(Red, Blue, n, filename, detail=True):
     rateline = []
     if Blue == 'Socket' or Red == 'Socket':
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind(('0.0.0.0', 50006))
+        sock.bind(('0.0.0.0', 50007))
         sock.listen(1)
         conn, addr = sock.accept()
-        #获取ID
+        global ID
         ID = conn.recv(1024).decode()[:-1]
         print("CONNECT CLIENT ID : " + str(ID))
     else:
