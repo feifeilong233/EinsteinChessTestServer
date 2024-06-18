@@ -5,12 +5,22 @@ import random
 import time
 import gc
 import numpy as np
+from torch import multiprocessing as mp
+import torch
+from torch import softmax
+from torch.autograd import Variable
 import copy
 import socket
 import logging
 from pygame.locals import *
 from sys import exit
 from time import ctime, sleep
+
+from try_resnet_0706 import ResNet
+from try_resnet_0706 import BasicBlock
+from try_resnet_0713_value import ResNet as ResNetValue
+
+torch.backends.cudnn.benchmark = True
 WINDOWSIZE = (1400, 680)  # 游戏窗口大小
 LINECOLOR = (0, 0, 0)  # 棋盘线的颜色
 TEXTCOLOR = (0, 0, 0)  # 标题文本颜色
@@ -41,7 +51,7 @@ RESULT = [0, 0]  # 记录比赛结果
 WINSIZE = (530, 130)  # 显示比赛结果窗口大小
 INFTY = 10000
 SLEEPTIME = 0
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer.log')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0618.log')
 logger = logging.getLogger()
 ch = logging.StreamHandler() #日志输出到屏幕控制台
 ch.setLevel(logging.INFO) #设置日志等级
@@ -57,6 +67,9 @@ class Status(object):
         self.pawn = None
         self.pro = None
         self.parent = None
+        self.parent_before = None
+        self.parent_3 = None
+        self.parent_4 = None
         self.pPawn = None
         self.pMove = None
         self.pDice = None
@@ -66,6 +79,10 @@ class Status(object):
         self.cPMSecond = [[],[],[],[],[],[]]
     def print(self):
         print(self.cPM)
+    def __str__(self):
+        # print(Status)
+        return '[棋子为%s , 选择方向为%s]' % (self.pPawn, self.pMove)
+
 def init():
     global IMAGE,tip,screen,font,maplib,Lyr,Lyb,Lx,S,matchPro
     pygame.init()
@@ -279,6 +296,7 @@ def terminate():  # 退出游戏
 
 
 def makeMove(p, PawnMoveTo):  # 移动棋子，更新地图信息，和棋子存活情况
+    back_S = copy.deepcopy(S)
     row, col = getLocation(p, S.map)
     x = y = 0
     if PawnMoveTo == LEFT:
@@ -308,6 +326,16 @@ def makeMove(p, PawnMoveTo):  # 移动棋子，更新地图信息，和棋子存
         i = S.pawn.index(S.map[row][col])
         S.pawn[i] = 0
     S.map[row][col] = p
+    value = getLocValue(S)  # 获取所有棋子的位置价值
+    S.pro = getPawnPro(S)  # 获取所有棋子被摇到的概率
+    S.value = getPawnValue(value, S.pro)
+    S.parent = back_S
+    if back_S.parent is not None:
+        S.parent_before = back_S.parent.map
+    else:
+        S.parent_before = None
+    S.parent_3 = back_S.parent_before
+    S.parent_4 = back_S.parent_3
     return True
 def notInMap(x, y):  # 检测棋子是否在棋盘内移动
     if x in range(0, 5) and y in range(0, 5):
@@ -369,6 +397,30 @@ def getNewMap():  # 换新图
     ]
     return newMap
 
+def getPawnPro(S):  # 返回棋子被摇到的概率
+    value = getLocValue(S)
+    pro = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    for p in range(1, 13):
+        pro[p - 1] = 1.0 / 6
+    for p in range(1, 13):
+        if S.pawn[p - 1] == 0:
+            ans = findNearby(p, S.pawn)
+            if len(ans) > 1:
+                pr = ans[0] - 1
+                pl = ans[1] - 1
+                if value[pr] > value[pl]:
+                    pro[pr] += pro[p - 1]
+                elif value[pr] == value[pl]:
+                    pro[pr] += pro[p - 1] / 2
+                    pro[pl] += pro[p - 1] / 2
+                else:
+                    pro[pl] += pro[p - 1]
+            elif len(ans) == 1:
+                pro[ans[0] - 1] += pro[p - 1]
+            elif len(ans) == 0:
+                pass
+            pro[p - 1] = 0
+    return pro
 
 def getLocValue(S):  # 棋子所在位置的价值
     blueValue = [[99, 10,  6,  3,  1],
@@ -511,10 +563,16 @@ def tryMakeMove(p, PawnMoveTo, S):  # 尝试移动，并且返回移动后的棋
         i = newS.pawn.index(newS.map[row][col])
         newS.pawn[i] = 0
     newS.map[row][col] = p
-    # value = getLocValue(newS)  # 获取所有棋子的位置价值
-    # newS.pro = getPawnPro(newS)  # 获取所有棋子被摇到的概率
-    # newS.value = getPawnValue(value, newS.pro)
+    value = getLocValue(newS)  # 获取所有棋子的位置价值
+    newS.pro = getPawnPro(newS)  # 获取所有棋子被摇到的概率
+    newS.value = getPawnValue(value, newS.pro)
     newS.parent = S
+    if S.parent is not None:
+        newS.parent_before = S.parent.map
+    else:
+        newS.parent_before = None
+    newS.parent_3 = S.parent_before
+    newS.parent_4 = S.parent_3
     newS.pPawn = p
     newS.pMove = PawnMoveTo
     if p < 7:
@@ -962,6 +1020,468 @@ def redByUctPlusDemo(ans):
     gc.collect()
     return bestp, bestm
 
+def get_alldata_5(myS: Status):
+    datanew = []
+    NPmap = np.array(myS.map)
+    reddata = np.where(NPmap < 7, NPmap, 0)
+    bluedata = np.where(NPmap >= 7, NPmap, 0)
+    datanew.append(reddata)
+    datanew.append(bluedata)
+    if myS.parent is not None:
+        NPmap = np.array(myS.parent.map)
+        reddata = np.where(NPmap < 7, NPmap, 0)
+        bluedata = np.where(NPmap >= 7, NPmap, 0)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+    else:
+        reddata = np.zeros([5, 5], int)
+        bluedata = np.zeros([5, 5], int)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+
+    if myS.parent_before is not None:
+        NPmap = np.array(myS.parent_before)
+        reddata = np.where(NPmap < 7, NPmap, 0)
+        bluedata = np.where(NPmap >= 7, NPmap, 0)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+    else:
+        reddata = np.zeros([5, 5], int)
+        bluedata = np.zeros([5, 5], int)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+
+    if myS.parent_3 is not None:
+        NPmap = np.array(myS.parent_3)
+        reddata = np.where(NPmap < 7, NPmap, 0)
+        bluedata = np.where(NPmap >= 7, NPmap, 0)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+    else:
+        reddata = np.zeros([5, 5], int)
+        bluedata = np.zeros([5, 5], int)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+
+    if myS.parent_4 is not None:
+        NPmap = np.array(myS.parent_4)
+        reddata = np.where(NPmap < 7, NPmap, 0)
+        bluedata = np.where(NPmap >= 7, NPmap, 0)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+    else:
+        reddata = np.zeros([5, 5], int)
+        bluedata = np.zeros([5, 5], int)
+        datanew.append(reddata)
+        datanew.append(bluedata)
+    return datanew
+
+def cal_first_choice(probli, Vsr, nowS, c=9, value_balance=0.1, _playsr=None):
+    if _playsr is None:
+        _playsr = {}
+    U = c * probli / (_playsr.get(nowS, 0) + 1)
+    V = Vsr.get(nowS, 0) * value_balance
+    C = U + V
+    return C
+
+def selectPawn_run_sim_net(S, n=0, _count=0):  # 掷骰子，挑选可以移动的棋子。n为骰子数，0表示为了模拟
+    if n == 0:  # 未传入n说明不是根据现局面与骰子模拟，在模拟后面棋局
+        _count += 1
+        if _count % 2 == 0:  # 偶数是红，奇数是蓝
+            n = random.randint(1, 6)  # 红
+        else:
+            n = random.randint(7, 12)  # 蓝
+        ans = findNearby(n, S.pawn)
+    else:  # 如果传入了n，说明是为了模拟真实棋局
+        ans = findNearby(n, S.pawn)
+    return n, ans, _count
+
+def getTheNextStepStatus_updata_run_sim_net(SL, count):  # 根据现局面，获得所有合法的后续局面
+    NL = []
+    if SL[0].pPawn > 6:
+        move = ['right', 'down', 'rightdown']
+        o = 0
+    else:
+        move = ['left', 'up', 'leftup']
+        o = 6
+    for s in SL:
+        i = random.randint(1, 6)
+        n, ans, count = selectPawn_run_sim_net(s, i + o, _count=count)
+        for p in ans:
+            for m in move:
+                newStatus = tryMakeMove(p, m, s)
+                if newStatus is not False:
+                    newStatus.pDice = i
+                    NL.append(newStatus)
+                del newStatus
+    return NL, count
+
+def redByNeuralUCT(ans):
+    global playsr
+    global winsr
+    # global Vsr
+    # global recorder
+    # global Vsr_all
+    # print("red can move ", ans)
+    calculation_time = float(10)
+    move = ['right', 'down', 'rightdown']
+    Vsr = {}
+    Vsr_all = {}
+    recorder = {}
+    Tempt = {}
+    SL = []  # 当前局面下合法的后续走法
+
+    datanew = get_alldata_5(S)
+
+    for p in ans:
+        for m in move:
+            newStatus = tryMakeMove(p, m, S)
+            if newStatus is not False:
+                Vsr_all[newStatus] = 0.  # 改为 float
+                SL.append(newStatus)
+                if isEnd(newStatus):
+                    return p, m
+                del newStatus
+    if len(SL) == 1:
+        return SL[0].pPawn, SL[0].pMove  # 如只有一个合法后续，直接返回
+    games = 0
+    begin = time.time()
+    playsr[S] = 0
+    num_process = 1  # 多进程数目
+    pool = mp.Pool(processes=num_process)  # 进程池
+
+    while time.time() - begin < calculation_time:  # time.time() - begin < calculation_time
+        inputs_run_sim_net = []  # 多进程输入
+        for _ in range(num_process):
+            inputs_run_sim_net.append([playsr, Vsr, SL, datanew, games, 1, 30])
+        playsr[S] += num_process
+        outputs_run_sim_net = pool.map(run_simulation_network, inputs_run_sim_net)  # 多进程输出
+
+        games += num_process
+        for output in outputs_run_sim_net:
+            Qsr, The_total_choose, k, visited_states, visited_red = output
+            The_total_choose2 = SL[0]  # 解决两个 Status 类 S1,S2 的值相同但 S1 != S2
+            for state in Vsr_all:
+                if state.__str__() == The_total_choose.__str__():
+                    The_total_choose2 = state
+                    if playsr.get(The_total_choose2, -1) == -1:
+                        playsr[The_total_choose2] = 0
+                        winsr[The_total_choose2] = 0
+                    break
+
+            for move in visited_states:
+                if move == The_total_choose:
+                    playsr[The_total_choose2] += 1
+                else:
+                    if playsr.get(move, -1) == -1:  # 激活已选节点在playsr中，winsr中
+                        playsr[move] = 0
+                        winsr[move] = 0
+                    playsr[move] += 1
+                if k == 1:
+                    if move == The_total_choose:
+                        winsr[The_total_choose2] += 1
+                    else:
+                        winsr[move] += 1
+                if move in visited_red:
+                    if recorder.get(The_total_choose2, 0) == 0:
+                        recorder[The_total_choose2] = 0
+                    recorder[The_total_choose2] += 1
+                    if k == 1:
+                        Qsr[move] = (Qsr.get(move, 0) + 1) / 2
+                    if k == 2:
+                        Qsr[move] = (Qsr.get(move, 0) - 1) / 2
+                    Vsr_all[The_total_choose2] += Qsr.get(move, 0)
+                Vsr[The_total_choose2] = Vsr_all.get(The_total_choose2, 0) / recorder.get(The_total_choose2, 1)
+
+        if games % 40 == 0:
+            for move in SL:
+                Tempt[move] = winsr.get(move, 0) / playsr.get(move, 1)
+                # file.write(str(Tempt[move]) + ' ')
+            # print(Tempt)
+            # file.write('\n')
+    playsr[S] = 0
+    pool.close()
+    pool.join()
+    # file.close()
+    for move in SL:
+        Tempt[move] = winsr.get(move, 0) / playsr.get(move, 1)
+
+    move_choose = max(Tempt, key=lambda x: Tempt[x])
+
+    for move in SL:
+        if move != move_choose and Tempt[move] == Tempt[move_choose] and move.pMove == 'rightdown':
+            move_choose = move
+    bestp = move_choose.pPawn
+    bestm = move_choose.pMove
+
+    for move in SL:
+        print(playsr.get(move, 0))
+    for move1 in SL:
+        print(Tempt.get(move1, 0))
+    for move in SL:
+        print("the valuenet total is", Vsr.get(move,0))
+
+    print('we have searched for ', games)
+    # print('bestp=', bestp, ' bestm=', bestm)
+
+    del Vsr
+    del Vsr_all
+    del recorder
+    del SL
+    gc.collect()
+    return bestp, bestm
+
+def run_simulation_network(inputs):  # 红方
+    # global winsr
+    # global playsr
+    # global S
+    # global Vsr
+    # global Vsr_all
+    # global recorder
+    playsr, Vsr, availables, datanew, games, c, max_actions = inputs
+    move_dict = {'right': 0, 'down': 1, 'rightdown': 2}
+
+    # 注意网络层数对应的定义
+    device = torch.device("cuda")
+    net = ResNet(BasicBlock, [1, 1, 1, 1])
+    net = net.cuda(device)
+    net.load_state_dict(torch.load('0830_1111_Alpha1.pt'))
+    net.eval()
+
+    # net_jit = torch.jit.load("Alpha1.pt")
+
+    valuenet = ResNetValue(BasicBlock, [1, 1, 1, 1], 1)
+    valuenet = valuenet.cuda(device)
+    valuenet.load_state_dict(torch.load('0830_1111_Alpha1_value_little.pt'))
+    valuenet.eval()
+
+    temperature = 0.1
+    temperature_demo = 2.0
+    count = 0  # 同 COUNT
+
+    Qsr = {}
+    # availables = SL  # 合法后继
+    visited_states = set()  # 以访问节点，判断是否拓展
+    visited_red = set()
+    # playsr[S] += 1
+    datanew = np.array(datanew)
+    datanew = torch.tensor(datanew)
+    datanew = datanew.cuda(device)
+    datanew = Variable(torch.unsqueeze(datanew, dim=0).float(), requires_grad=False)
+
+    # torch.onnx.export(net, datanew, 'model.onnx', input_names=["input"], output_names=["output"], dynamic_axes={'input': {0: 'batch'}, 'output': {0: 'batch'}})
+
+    # # Tracing
+    # traced_net = torch.jit.trace(net, datanew)
+    #
+    # # 保存Torch Script模型
+    # traced_net.save("Alpha1.pt")
+
+    # init jit
+    # for _ in range(10):
+    #     run_model(net, datanew)
+    #     run_model(net_jit, datanew)
+    #
+    # test_times = 10
+    #
+    # # begin testing
+    # results = pd.DataFrame({
+    #     "type": ["orgin"] * test_times + ["jit"] * test_times,
+    #     "cost_time": [run_model(net, datanew) for _ in range(test_times)] + [run_model(net_jit, datanew) for _ in
+    #                                                                                 range(test_times)]
+    # })
+    #
+    # plt.figure(dpi=120)
+    # sns.boxplot(
+    #     x=results["type"],
+    #     y=results["cost_time"]
+    # )
+    # plt.show()
+    #
+    # results.to_csv("test_results0.csv", index=False)
+    #
+    # print(results)
+
+    outnew = net(datanew)
+
+    prenew = outnew
+    out = torch.zeros(25)
+    prenew = prenew.squeeze()
+    # out = self.trans(out)
+    out = out.cuda(device)
+    # print(out)
+    for i in range(0, 6):
+        oneStatus = prenew[i * 4:(i + 1) * 4]
+        out[i * 4:(i + 1) * 4] = 3 * torch.softmax(oneStatus, 0)
+        for index, value in enumerate(out[i * 4:(i + 1) * 4]):
+            if index < 3:
+                if value < 0.2:
+                    out[i * 4 + index] = 0.2
+    out = out.tolist()
+    # probli = []
+    consider = {}
+
+    for move in availables:
+        move_p = move.pPawn
+        move_to = move.pMove
+        problis = out[(move_p - 1) * 4:move_p * 4 - 1]  # move = ['right', 'down', 'rightdown']
+        probli = problis[move_dict[move_to]]
+        # if games == 0:
+        #     print(move.pMove, probli)
+        C = cal_first_choice(probli, Vsr, move, 9, _playsr=playsr)
+        consider[move] = C
+    The_total_choose = max(consider, key=lambda x: consider[x])  # 最大值对应的键
+    del consider
+    move_choose = copy.deepcopy(The_total_choose)
+
+    # 激活已选节点在playsr中，winsr中
+    # if playsr.get(The_total_choose, -1) == -1:
+    #     playsr[The_total_choose] = 0
+    #     winsr[The_total_choose] = 0
+    visited_states.add(The_total_choose)
+    k = 0
+    if move_choose is not False:
+        k = isEnd(move_choose)
+        if k == False:
+            for t in range(1, max_actions):
+
+                NL = []
+                NL.append(move_choose)
+                availables, count = getTheNextStepStatus_updata_run_sim_net(NL, count)
+                del NL
+                for move in availables:
+                    if move is not False:
+                        k = isEnd(move)
+                        if k:
+                            move_otherside = move
+                            break
+                if k:
+                    break
+
+                max_problis = []
+                consider = {}
+                max_consider = []
+                for move in availables:
+                    theValue = getDemoValueblue(move)
+                    consider[move] = theValue
+                    max_problis.append(theValue)
+                    max_consider.append(move)
+
+                max_problis = np.array(max_problis)
+                move_otherside = random.choices(max_consider, SoftMax(max_problis / temperature_demo), k=1)
+                move_otherside = move_otherside[0]
+
+                visited_states.add(move_otherside)
+                # if playsr.get(move_otherside, -1) == -1:
+                #     playsr[move_otherside] = 0
+                #     winsr[move_otherside] = 0
+                if move_otherside is not False:
+                    k = isEnd(move_otherside)
+                    if k:
+                        break
+                NL = []
+                NL.append(move_otherside)
+                availables, count = getTheNextStepStatus_updata_run_sim_net(NL, count)
+                del NL
+
+                for move in availables:
+                    if move is not False:
+                        k = isEnd(move)
+                        if k:
+                            move_choose = move
+                            break
+                if k:
+                    break
+
+                datanew = get_alldata_5(move_otherside)
+                datanew = np.array(datanew)
+                datanew = torch.tensor(datanew)
+                datanew = datanew.cuda(device)
+                datanew = Variable(torch.unsqueeze(datanew, dim=0).float(), requires_grad=False)
+                outnew = net(datanew)
+                # # Tracing
+                # traced_net = torch.jit.trace(net, datanew)
+                # # 保存Torch Script模型
+                # traced_net.save("Alpha1_CPU.pt")
+
+                prenew = outnew
+                out = torch.zeros(25)
+                prenew = prenew.squeeze()
+                # out = self.trans(out)
+                out = out.cuda(device)
+                # print(out)
+                for i in range(0, 6):
+                    oneStatus = prenew[i * 4:(i + 1) * 4]
+                    out[i * 4:(i + 1) * 4] = 3 * torch.softmax(oneStatus, 0)
+                    for index, value in enumerate(out[i * 4:(i + 1) * 4]):
+                        if index < 3:
+                            if value < 0.2:
+                                out[i * 4 + index] = 0.2
+                out = out.tolist()
+                # probli = []
+                consider = {}
+                max_consider = []
+                max_problis = []
+
+                for move in availables:
+                    move_p = move.pPawn
+                    move_to = move.pMove
+                    problis = out[(move_p - 1) * 4:move_p * 4 - 1]  # move = ['right', 'down', 'rightdown']
+                    probli = problis[move_dict[move_to]]
+                    max_problis.append(probli)
+                    consider[move] = probli
+                list_consider_value = list(consider.values())
+                list_consider_keys = list(consider.keys())
+                for one_pro in max_problis:
+                    position = list_consider_value.index(one_pro)
+                    max_consider.append(list_consider_keys[position])
+                max_problis = torch.tensor(max_problis)
+
+                move_choose = random.choices(max_consider, torch.softmax(max_problis / temperature, 0), k=1)
+
+                move_choose = move_choose[0]
+
+                Qsr[move_choose] = valuenet(datanew).tolist()[0][0]
+                # Qsr[move_choose] = 0
+                visited_red.add(move_choose)
+
+                # 激活已选节点在playsr中，winsr中
+                # if playsr.get(move_choose, -1) == -1:
+                #     playsr[move_choose] = 0
+                #     winsr[move_choose] = 0
+                visited_states.add(move_choose)
+                k = 0
+                if move_choose is not False:
+                    k = isEnd(move_choose)
+                    if k:
+                        break
+
+                """
+                    此处是要更新新的局面数据，以传入网络进行估值
+                """
+
+                """
+                    把移动过的点加入进访问元组中，方便日后查询
+                """
+
+    # for move in visited_states:
+    #     playsr[move] += 1
+    #     if k == 1:
+    #         winsr[move] += 1
+    #     if move in visited_red:
+    #         if recorder.get(The_total_choose, 0) == 0:
+    #             recorder[The_total_choose] = 0
+    #         recorder[The_total_choose] += 1
+    #         if k == 1:
+    #             Qsr[move] = (Qsr.get(move, 0) + 1) / 2
+    #         if k == 2:
+    #             Qsr[move] = (Qsr.get(move, 0) - 1) / 2
+    #         Vsr_all[The_total_choose] += Qsr.get(move, 0)
+    #     Vsr[The_total_choose] = Vsr_all.get(The_total_choose, 0) / recorder.get(The_total_choose, 1)
+    # del visited_states
+    # del visited_red
+    return Qsr, The_total_choose, k, visited_states, visited_red
+
 def getTheNextStepStatus(SL):
     NL = []
     if SL[0].pPawn > 6:
@@ -1209,6 +1729,8 @@ def playGame(Red, Blue, detail, conn):
                 p, moveTo = redByMinimax(ans)
             if Red == 'Uct':
                 p, moveTo = redByUctPlusDemo(ans)
+            if Red == 'Nerual_Uct':
+                p, moveTo = redByNeuralUCT(ans)
             if Red == 'Socket':
                 try:
                     p, moveTo = socketToMove(conn=conn,n=n, ans=ans, S=S)
@@ -1327,7 +1849,8 @@ if __name__ == '__main__':
     当前示例表示红方为服务器，蓝方为客户端
     首先启动此程序
     '''
-    Red = 'Uct'
+    mp.set_start_method('spawn')
+    Red = 'Nerual_Uct'
     Blue = 'Socket'
     filename = os.getcwd() + "\\data\\" + Red + 'Vs' + Blue
     print(filename)
