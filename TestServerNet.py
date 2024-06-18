@@ -1123,7 +1123,7 @@ def redByNeuralUCT(ans):
     # global recorder
     # global Vsr_all
     # print("red can move ", ans)
-    calculation_time = float(10)
+    calculation_time = float(15)
     move = ['right', 'down', 'rightdown']
     Vsr = {}
     Vsr_all = {}
@@ -1147,7 +1147,7 @@ def redByNeuralUCT(ans):
     games = 0
     begin = time.time()
     playsr[S] = 0
-    num_process = 1  # 多进程数目
+    num_process = 4  # 多进程数目
     pool = mp.Pool(processes=num_process)  # 进程池
 
     while time.time() - begin < calculation_time:  # time.time() - begin < calculation_time
@@ -1214,12 +1214,12 @@ def redByNeuralUCT(ans):
     bestp = move_choose.pPawn
     bestm = move_choose.pMove
 
-    for move in SL:
-        print(playsr.get(move, 0))
-    for move1 in SL:
-        print(Tempt.get(move1, 0))
-    for move in SL:
-        print("the valuenet total is", Vsr.get(move,0))
+    # for move in SL:
+    #     print(playsr.get(move, 0))
+    # for move1 in SL:
+    #     print(Tempt.get(move1, 0))
+    # for move in SL:
+    #     print("the valuenet total is", Vsr.get(move,0))
 
     print('we have searched for ', games)
     # print('bestp=', bestp, ' bestm=', bestm)
@@ -1243,12 +1243,12 @@ def run_simulation_network(inputs):  # 红方
 
     # 注意网络层数对应的定义
     device = torch.device("cuda")
-    net = ResNet(BasicBlock, [1, 1, 1, 1])
-    net = net.cuda(device)
-    net.load_state_dict(torch.load('0830_1111_Alpha1.pt'))
-    net.eval()
+    # net = ResNet(BasicBlock, [1, 1, 1, 1])
+    # net = net.cuda(device)
+    # net.load_state_dict(torch.load('0830_1111_Alpha1.pt'))
+    # net.eval()
 
-    # net_jit = torch.jit.load("Alpha1.pt")
+    net = torch.jit.load("Alpha1.pt")
 
     valuenet = ResNetValue(BasicBlock, [1, 1, 1, 1], 1)
     valuenet = valuenet.cuda(device)
