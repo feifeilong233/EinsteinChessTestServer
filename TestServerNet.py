@@ -50,7 +50,7 @@ RESULT = [0, 0]  # 记录比赛结果
 WINSIZE = (530, 130)  # 显示比赛结果窗口大小
 INFTY = 10000
 SLEEPTIME = 0
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0619.log')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0620.log')
 logger = logging.getLogger()
 ch = logging.StreamHandler() #日志输出到屏幕控制台
 ch.setLevel(logging.INFO) #设置日志等级
@@ -362,8 +362,8 @@ def resetInfo():  # 重置比赛信息
     S.pawn = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # 棋子初始化
     S.pro = [1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0 /
            6, 1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0/6, 1.0/6]
-    value = getLocValue(S)
-    S.value = getPawnValue(S.pro, value)
+    # value = getLocValue(S)
+    # S.value = getPawnValue(S.pro, value)
 
 def getNewMap():  # 换新图
     # r = random.sample(maplib, 1)[0]
@@ -1165,6 +1165,8 @@ def startGame(Red, Blue, n, filename, detail=True):
         conn = 0
     print('   connected')
     while cnt:
+        global S
+        S = Status()
         resetInfo()
         playsr = {}
         winsr = {}
@@ -1216,5 +1218,5 @@ if __name__ == '__main__':
     # 测试局数
     cnt = 100
     # temperature = 0.1
-    result = startGame(Red, Blue, cnt, filename, detail=False)
+    result = startGame(Red, Blue, cnt, filename, detail=True)
     input('wait')
