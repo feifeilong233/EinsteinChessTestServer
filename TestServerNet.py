@@ -7,20 +7,19 @@ import gc
 import numpy as np
 from torch import multiprocessing as mp
 import torch
-from torch import softmax
 from torch.autograd import Variable
 import copy
 import socket
 import logging
 from pygame.locals import *
-from sys import exit
-from time import ctime, sleep
+from time import sleep
 
-from try_resnet_0706 import ResNet
 from try_resnet_0706 import BasicBlock
 from try_resnet_0713_value import ResNet as ResNetValue
 
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 torch.backends.cudnn.benchmark = True
+
 WINDOWSIZE = (1400, 680)  # 游戏窗口大小
 LINECOLOR = (0, 0, 0)  # 棋盘线的颜色
 TEXTCOLOR = (0, 0, 0)  # 标题文本颜色
@@ -51,14 +50,13 @@ RESULT = [0, 0]  # 记录比赛结果
 WINSIZE = (530, 130)  # 显示比赛结果窗口大小
 INFTY = 10000
 SLEEPTIME = 0
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0618.log')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0619.log')
 logger = logging.getLogger()
 ch = logging.StreamHandler() #日志输出到屏幕控制台
 ch.setLevel(logging.INFO) #设置日志等级
 formatter = logging.Formatter('%(asctime)s %(name)s- %(levelname)s - %(message)s') #定义日志输出格式
 ch.setFormatter(formatter) #选择一个格式
 logger.addHandler(ch) #增加指定的handler
-
 
 class Status(object):
     def __init__(self):
@@ -140,17 +138,17 @@ def init():
               [1, 6, 3, 4, 2, 5],
               [1, 5, 4, 6, 3, 2]
               ]
-    resetInfo()
+    # resetInfo()
     Lyr = []
     Lyb = []
     Lx = []
     matchPro = 0.85
 
-
 def loadImage(name, pos, size=SIZE):
     filename = "picture/white/" + name
     screen.blit(pygame.transform.scale(
         pygame.image.load(filename).convert(), size), pos)
+
 def waitForPlayerToPressKey():  # 等待按键
     while True:
         for event in pygame.event.get():
@@ -161,7 +159,6 @@ def waitForPlayerToPressKey():  # 等待按键
                     terminate()
                 return
 
-
 def drawStartScreen():  # 开始界面
     screen.fill(WHITE)
     loadImage("AYST.png", (190, 40), AYSTSIZE)
@@ -170,6 +167,7 @@ def drawStartScreen():  # 开始界面
 
 
     # waitForPlayerToPressKey()
+
 def drawWinScreen(result):  # 比赛结束，显示结果界面
     if result == BLUEWIN:
         loadImage("BLUEWIN.png", (50, 500), WINSIZE)
@@ -192,6 +190,7 @@ def showWinRate(RedWinRate, BlueWinRate, x):
             screen, RED, (100*Lx[i], 100*Lyr[i]), (100*Lx[i], 100*Lyr[i+1]))
         pygame.draw.line(
             screen, BLUE, (100*Lx[i], 100*Lyb[i]), (100*Lx[i], 100*Lyb[i+1]))
+
 def drawGameScreen(Red, Blue):  # 游戏比赛界面
     global S
     screen.fill(WHITE)
@@ -255,7 +254,6 @@ def drawMovePawn(n, ans):  # 可选择移动的棋子
         loadImage(str(n-6)+'.png', (310, 5))
     pygame.display.update()
 
-
 def drawPawn(value, row, col, size=SIZE):  # 在（row，col）处，画值为value的棋子
     pos_x = col * STEP + START
     pos_y = row * STEP + START
@@ -275,7 +273,6 @@ def drawText(text, font, color, surface, row, col):  # 处理需要描绘的文�
     textrect.topleft = (x, y)
     surface.blit(textobj, textrect)
 
-
 def selectPawn(S,n=0):  # 掷骰子，挑选可以移动的棋子
     global COUNT
     if n == 0:
@@ -289,11 +286,9 @@ def selectPawn(S,n=0):  # 掷骰子，挑选可以移动的棋子
         ans = findNearby(n, S.pawn)
     return n, ans
 
-
 def terminate():  # 退出游戏
     pygame.quit()
     sys.exit()
-
 
 def makeMove(p, PawnMoveTo):  # 移动棋子，更新地图信息，和棋子存活情况
     back_S = copy.deepcopy(S)
@@ -337,24 +332,11 @@ def makeMove(p, PawnMoveTo):  # 移动棋子，更新地图信息，和棋子存
     S.parent_3 = back_S.parent_before
     S.parent_4 = back_S.parent_3
     return True
+
 def notInMap(x, y):  # 检测棋子是否在棋盘内移动
     if x in range(0, 5) and y in range(0, 5):
         return False
     return True
-
-
-def showSelected(p):  # 用红色标记，显示被挑选的棋子
-    row, col = getLocation(p, S.map)
-    pos_x = col * STEP + START
-    pos_y = row * STEP + START
-    Pos = (pos_x, pos_y)
-    if p > 6:
-        s = 'Y' + str(p-6)
-    else:
-        s = 'Y' + str(p)
-    loadImage(s+'.png', Pos)
-    pygame.display.update()
-
 
 def isEnd(S):  # 检测比赛是否结束
     if S.map[0][0] > 6:
@@ -375,7 +357,6 @@ def isEnd(S):  # 检测比赛是否结束
         return REDWIN
     return False
 
-
 def resetInfo():  # 重置比赛信息
     S.map = getNewMap()
     S.pawn = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # 棋子初始化
@@ -384,16 +365,15 @@ def resetInfo():  # 重置比赛信息
     value = getLocValue(S)
     S.value = getPawnValue(S.pro, value)
 
-
 def getNewMap():  # 换新图
-    r = random.sample(maplib, 1)[0]
+    # r = random.sample(maplib, 1)[0]
     b = maplib[0]
     newMap = [
-        [r[0], r[3],  r[5],     0,    0],
-        [r[1], r[4],     0,     0,    0],
-        [r[2],   0,     0,     0, b[2]+6],
-        [0,   0,     0, b[4]+6, b[1]+6],
-        [0,   0, b[5]+6, b[3]+6, b[0]+6]
+        [6, 2, 4, 0, 0],
+        [1, 5, 0, 0, 0],
+        [3, 0, 0, 0, b[2] + 6],
+        [0, 0, 0, b[4] + 6, b[1] + 6],
+        [0, 0, b[5] + 6, b[3] + 6, b[0] + 6]
     ]
     return newMap
 
@@ -527,13 +507,11 @@ def findNearby(n, nowPawn):  # 寻找可以移动的棋子
                 break
     return ans
 
-
 def getLocation(p, Map):  # 返回传入地图下，棋子p的坐标
     for i in range(5):
         for j in range(5):
             if Map[i][j] == p:
                 return i, j
-
 
 def tryMakeMove(p, PawnMoveTo, S):  # 尝试移动，并且返回移动后的棋局地图与棋子存活情况
     newS = copy.deepcopy(S)
@@ -583,174 +561,9 @@ def tryMakeMove(p, PawnMoveTo, S):  # 尝试移动，并且返回移动后的棋
         newS.cPawnSecond = [-INFTY,-INFTY,-INFTY,-INFTY,-INFTY,-INFTY]
     return newS
 
-def decideBlueHowToMove(ans):
-    p = 0
-    while True:
-        PawnMoveTo = None
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                terminate()
-            elif event.type == KEYDOWN:
-                if len(ans) > 1:
-                    if event.key == K_1:
-                        p = 7
-                    elif event.key == K_2:
-                        p = 8
-                    elif event.key == K_3:
-                        p = 9
-                    elif event.key == K_4:
-                        p = 10
-                    elif event.key == K_5:
-                        p = 11
-                    elif event.key == K_6:
-                        p = 12
-                else:
-                    p = ans[0]
-                if p != 0:
-                    if p in ans:
-                        showSelected(p)
-                        if event.key == K_h:
-                            PawnMoveTo = LEFT
-                        elif event.key == K_u:
-                            PawnMoveTo = UP
-                        elif event.key == K_y:
-                            PawnMoveTo = LEFTUP
-        if PawnMoveTo != None:
-            newS = tryMakeMove(p, PawnMoveTo, S)
-            if newS is not False:
-                return p, PawnMoveTo
-def blueByBraveOfMan(ans):
-    moveTo = ['leftup', 'up', 'left']
-    bestp = 0
-    bestm = ''
-    for p in ans:
-        for m in moveTo:
-            newS = tryMakeMove(p, m, S)
-            if newS is not False:
-                bestp = p
-                bestm = m
-                break
-    return bestp, bestm
-def redByBraveOfMan(ans):
-    moveTo = ['rightdown', 'down', 'right']
-    bestp = 0
-    bestm = ''
-    for p in ans:
-        for m in moveTo:
-            newS = tryMakeMove(p, m, S)
-            if newS is not False:
-                bestp = p
-                bestm = m
-                break
-    return bestp, bestm
-def getScore(S, k=2.2, lam=5):
-    redToBlueOfThread, blueToRedOfThread = getThread(S)
-    expRed = expBlue = 0
-    for i in range(0, 12):
-        if i < 6:
-            expRed += S.value[i]
-        else:
-            expBlue += S.value[i]
-    theValue = lam * ( k * expRed - expBlue) - blueToRedOfThread + redToBlueOfThread
-    return theValue
-def blueByDemo(ans, k=2.2, lam=5):
-    maxValue = theValue = -INFTY
-    bestp = 0
-    bestm = ''
-    move = ['left','up','leftup']
-    for p in ans:
-        for m in move:
-            newStatus = tryMakeMove(p,m,S)
-            if newStatus is not False:
-                theValue = getDemoValue(newStatus)
-                if theValue > maxValue:
-                    maxValue,bestp,bestm = theValue,p,m
-    return bestp,bestm
-def blueByDemo2(ans, k=2.2, lam=5):
-    maxValue = theValue = -INFTY
-    bestp = 0
-    bestm = ''
-    move = ['left','up','leftup']
-    for p in ans:
-        for m in move:
-            newStatus = tryMakeMove(p,m,S)
-            if newStatus is not False:
-                theValue = getDemoValue2(newStatus)
-                if theValue > maxValue:
-                    maxValue,bestp,bestm = theValue,p,m
-    return bestp,bestm
-def getDemoValue2(S,k=2.2,lam=5):
-    move = ['right','down','rightdown']
-    exp = 0
-    for p in range(1,7):
-        if p in S.pawn:
-            theValue = maxValue = -INFTY
-            for m in move:
-                newStatus = tryMakeMove(p,m,S)
-                if newStatus is not False:
-                    theValue = getScore(newStatus)
-                    if theValue > maxValue:
-                        maxValue = theValue
-            exp += S.pro[p-1] * maxValue
-    return -exp
-def getDemoValue(S, k=2.2, lam=5):
-    redToBlueOfThread, blueToRedOfThread = getThread(S)
-    expRed = expBlue = 0
-    for i in range(0, 12):
-        if i < 6:
-            expRed += S.value[i]
-        else:
-            expBlue += S.value[i]
-    theValue = lam * ( k * expBlue - expRed) + blueToRedOfThread - redToBlueOfThread
-    return theValue
-def redByMinimax(ans, k=2.2, lam=5, STEP=2):
-    maxValue = theValue = -INFTY
-    bestp = 0;
-    bestm = '';
-    move = ['right','down','rightdown']
-    KL = []
-    SL = []
-    for p in ans:
-        for m in move:
-            newStatus = tryMakeMove(p,m,S);
-            if newStatus is not False:
-                SL.append(newStatus)
-                if isEnd(newStatus):
-                    return p,m
-    STEP -= 1
-    if len(SL) == 1:
-        bestp,bestm = SL[0].pPawn,SL[0].pMove
-    else:
-        KL.append(SL)
-        for i in range(STEP):
-            NL = getTheNextStepStatus(KL[-1])
-            KL.append(NL)
-        KL = MinimaxGoBack(KL)
-        for s in KL:
-            theValue = getSum(s.cPawn)
-            if theValue > maxValue:
-                maxValue,bestp,bestm = theValue,s.pPawn,s.pMove
-    return bestp,bestm
-
-def getTheNextStepStatus_updata(SL):  # 根据现局面，获得所有合法的后续局面
-    NL = []
-    if SL[0].pPawn > 6:
-        move = ['right', 'down', 'rightdown']
-        o = 0
-    else:
-        move = ['left', 'up', 'leftup']
-        o = 6
-    for s in SL:
-        i = random.randint(1, 6)
-        n, ans = selectPawn(s, i + o)
-        for p in ans:
-            for m in move:
-                newStatus = tryMakeMove(p, m, s)
-                if newStatus is not False:
-                    newStatus.pDice = i
-                    NL.append(newStatus)
-                del newStatus
-    return NL
+def SoftMax(x):
+    f_x = np.exp(x) / np.sum(np.exp(x))
+    return f_x
 
 def getScorered(S, k=2.2, lam=5):  # 计算此时蓝方的局面估值
     redToBlueOfThread, blueToRedOfThread = getThread(S)
@@ -778,247 +591,6 @@ def getDemoValueblue(S, k=2.2, lam=5):
                         maxValue = theValue
             exp += S.pro[p - 1] * maxValue
     return exp
-
-def getScoreblue(S, k=2.2, lam=5):  # 计算此时蓝方的局面估值
-    redToBlueOfThread, blueToRedOfThread = getThread(S)
-    expRed = expBlue = 0
-    for i in range(0, 12):
-        if i < 6:
-            expRed += S.value[i]
-        else:
-            expBlue += S.value[i]
-    theValue = lam * (k * expRed - expBlue) + redToBlueOfThread - blueToRedOfThread
-    return theValue
-
-def getDemoValuered(S, k=2.2, lam=5):
-    move = ['left', 'up', 'leftup']
-    exp = 0
-    for p in range(7, 12):
-        if p in S.pawn:
-            theValue = maxValue = -INFTY
-            for m in move:
-                newStatus = tryMakeMove(p, m, S)
-                if newStatus is not False:
-                    theValue = getScoreblue(newStatus)
-                    if theValue > maxValue:
-                        maxValue = theValue
-            exp += S.pro[p - 1] * maxValue
-    return exp
-
-def SoftMax(x):
-    f_x = np.exp(x) / np.sum(np.exp(x))
-    return f_x
-
-def run_simulationWithDemo(SL, games, c=1, max_actions=1000):  # 红方
-    global winsr
-    global playsr
-    global S
-    global Vsr
-    global Vsr_all
-    global recorder
-    movetored = ['right', 'down', 'rightdown']
-    movetoblue = ['left', 'up', 'leftup']
-    move_dict = {'right': 0, 'down': 1, 'rightdown': 2}
-    moveblue_movered = {'left': 'right', 'up': 'down', 'leftup': 'rightdown'}
-    Qsr = {}
-    availables = SL  # 合法后继
-    visited_states = set()  # 以访问节点，判断是否拓展
-    visited_red = set()
-    playsr[S] += 1
-
-    move = availables[0]
-    for moved in availables:
-        if ((winsr.get(move, 0) / (playsr.get(move, 1))) + 0.85 * (
-                2 * playsr.get(S, 0) / (playsr.get(move, 1))) ** 0.5) < (
-                (winsr.get(moved, 0) / (playsr.get(moved, 1))) + 0.85 * (
-                2 * playsr.get(S, 0) / (playsr.get(moved, 1))) ** 0.5):
-            move = moved
-
-    The_total_choose = move
-
-    move_choose = copy.deepcopy(The_total_choose)
-
-    # 激活已选节点在playsr中，winsr中
-    if playsr.get(The_total_choose, -1) == -1:
-        playsr[The_total_choose] = 0
-        winsr[The_total_choose] = 0
-    visited_states.add(The_total_choose)
-    k = 0
-    if move_choose is not False:
-        k = isEnd(move_choose)
-        if k == False:
-            for t in range(1, max_actions):
-
-                NL = []
-                NL.append(move_choose)
-                availables = getTheNextStepStatus_updata(NL)
-                del NL
-                for move in availables:
-                    if move is not False:
-                        k = isEnd(move)
-                        if k:
-                            move_otherside = move
-                            break
-                if k:
-                    break
-                max_problis = []
-                consider = {}
-                max_consider = []
-                for move in availables:
-                    theValue = getDemoValueblue(move)
-                    consider[move] = theValue
-                    max_problis.append(theValue)
-                    max_consider.append(move)
-
-                # max_problis = torch.tensor(max_problis)
-                # print('torch_softmax',torch.softmax(max_problis/temperature,0))
-                max_problis = np.array(max_problis)
-                # print('SoftMax',SoftMax(max_problis / temperature))
-                move_otherside = random.choices(max_consider, SoftMax(max_problis / temperature), k=1)
-                move_otherside = move_otherside[0]
-                # print(np.array(move_choose.map))
-                # move_otherside = choice(availables)  # 对面的走法运用模拟出来的UCT
-                visited_states.add(move_otherside)
-                if playsr.get(move_otherside, -1) == -1:
-                    playsr[move_otherside] = 0
-                    winsr[move_otherside] = 0
-                if move_otherside is not False:
-                    k = isEnd(move_otherside)
-                    if k:
-                        break
-                del max_consider
-                NL = []
-                NL.append(move_otherside)
-                availables = getTheNextStepStatus_updata(NL)
-                del NL
-
-                for move in availables:
-                    if move is not False:
-                        k = isEnd(move)
-                        if k:
-                            move_choose = move
-                            break
-                if k:
-                    break
-                consider = {}
-                max_problis = []
-                max_consider = []
-                for move in availables:
-                    theValue = getDemoValuered(move)
-                    consider[move] = theValue
-                    max_problis.append(theValue)
-                    max_consider.append(move)
-                # max_problis = torch.tensor(max_problis)
-                max_problis = np.array(max_problis)
-                move_choose = random.choices(max_consider, SoftMax(max_problis / temperature), k=1)
-                move_choose = move_choose[0]
-                visited_red.add(move_choose)
-                # print(np.array(move_choose.map))
-                # 激活已选节点在playsr中，winsr中
-                if playsr.get(move_choose, -1) == -1:
-                    playsr[move_choose] = 0
-                    winsr[move_choose] = 0
-                visited_states.add(move_choose)
-                del max_consider
-                k = 0
-                if move_choose is not False:
-                    k = isEnd(move_choose)
-                    if k:
-                        break
-
-                # print(np.array(move_choose.map))
-                # NL = []
-                # NL.append(move_choose)
-                # availables = getTheNextStepStatus(NL)  # 更新合法后继
-                # del NL
-                """
-                    此处是要更新新的局面数据，以传入网络进行估值
-                """
-
-                """
-                    把移动过的点加入进访问元组中，方便日后查询
-                """
-
-    for move in visited_states:
-        playsr[move] += 1
-        if k == 1:
-            winsr[move] += 1
-
-    del visited_states
-    del visited_red
-    return playsr, winsr
-
-def redByUctPlusDemo(ans):
-    global playsr
-    global winsr
-    global Vsr
-    global recorder
-    global Vsr_all
-    print("red can move ", ans)
-    calculation_time = float(15)
-    bestp = 0
-    bestm = ''
-    move_dict = {'right': 0, 'down': 1, 'rightdown': 2}
-    move = ['right', 'down', 'rightdown']
-    Vsr = {}
-    Vsr_all = {}
-    recorder = {}
-    Tempt = {}
-    SL = []  # 当前局面下合法的后续走法
-    for p in ans:
-        for m in move:
-            newStatus = tryMakeMove(p, m, S)
-            if newStatus is not False:
-                SL.append(newStatus)
-                if isEnd(newStatus):
-                    return p, m
-                del newStatus
-    if len(SL) == 1:
-        return SL[0].pPawn, SL[0].pMove  # 如只有一个合法后续，直接返回
-    games = 0
-    begin = time.time()
-    playsr[S] = 0
-
-    while time.time() - begin < calculation_time:  # time.time() - begin < calculation_time
-        playsr, winsr = run_simulationWithDemo(SL, games, 1, 1000)
-        games += 1
-        if games % 120 == 0:
-            for move in SL:
-                Tempt[move] = winsr.get(move, 0) / playsr.get(move, 1)
-                # file.write(str(Tempt[move]) + ' ')
-            # print(Tempt)
-            # file.write('\n')
-    playsr[S] = 0
-    # file.close()
-    for move in SL:
-        Tempt[move] = winsr.get(move, 0) / playsr.get(move, 1)
-    # for move in SL:
-    #     Tempt[move] = playsr.get(move,0)
-    move_choose = max(Tempt, key=lambda x: Tempt[x])
-
-    for move in SL:
-        if move != move_choose and Tempt[move] == Tempt[move_choose] and move.pMove == 'rightdown':
-            move_choose = move
-    bestp = move_choose.pPawn
-    bestm = move_choose.pMove
-    # bestp, bestm = select_one_move_nerual(SL)
-    for move in SL:
-        print(playsr.get(move, 0))
-    for move1 in SL:
-        print(Tempt.get(move1, 0))
-    # for item in consider.values():
-    #     print("The total C are", item)
-    # for move in SL:
-    #     print("The output of net are", for_print.get(move, 0))
-    print('we have searched for ', games)
-    print(bestp, bestm)
-
-    del Vsr
-    del Vsr_all
-    del recorder
-    del SL
-    gc.collect()
-    return bestp, bestm
 
 def get_alldata_5(myS: Status):
     datanew = []
@@ -1482,194 +1054,6 @@ def run_simulation_network(inputs):  # 红方
     # del visited_red
     return Qsr, The_total_choose, k, visited_states, visited_red
 
-def getTheNextStepStatus(SL):
-    NL = []
-    if SL[0].pPawn > 6:
-        move = ['right','down','rightdown']
-        o = 0
-    else:
-        move = ['left','up','leftup']
-        o = 6
-    for s in SL:
-        for i in range(1,7):
-            n,ans = selectPawn(s,i+o)
-            for p in ans:
-                for m in move:
-                    newStatus = tryMakeMove(p,m,s);
-                    if newStatus is not False:
-                        newStatus.pDice = i
-                        NL.append(newStatus)
-    return NL
-def getSum(L):
-    value = 0
-    for i in L:
-        if i != INFTY and i != -INFTY:
-            value += i
-    return (1/6)*value
-def MinimaxGoBack(KL):
-    for s in KL[-1]:
-        score = getScore(s)
-        if s.pPawn > 6:
-            if score < s.parent.cPawn[(s.pDice%6)-1]:
-                s.parent.cPawn[s.pDice%6 - 1] = score
-        else:
-            if score > s.parent.cPawn[s.pDice-1]:
-                s.parent.cPawn[s.pDice-1] = score
-    for i in range(len(KL)-2,0,-1):
-        for s in KL[i]:
-            score = getSum(s.cPawn)
-            if s.pPawn > 6:
-                if score < s.parent.cPawn[s.pDice%6-1]:
-                    s.parent.cPawn[s.pDice%6 -1] = score
-            else:
-                if score > s.parent.cPawn[s.pDice-1]:
-                    s.parent.cPawn[s.pDice-1] = score
-    return KL[0]
-def BeyesGoBack(KL, rPro=1, bPro=1):
-    for s in KL[-1]:
-        score = getScore(s)
-        if s.pPawn > 6:
-            if score < s.parent.cPawn[(s.pDice%6)-1]:
-                s.parent.cPawnSecond[s.pDice%6-1] = s.parent.cPawn[s.pDice%6 - 1]
-                s.parent.cPawn[s.pDice%6 - 1] = score
-                if len(KL) == 2:
-                    s.parent.cPMSecond[s.pDice%6 -1] = s.parent.cPM[(s.pDice%6) - 1]
-                    s.parent.cPM[(s.pDice%6) - 1] = [s.pPawn,s.pMove]
-        else:
-            if score > s.parent.cPawn[s.pDice-1]:
-                s.parent.cPawn[s.pDice%6 - 1] = score
-                if len(KL) == 2:
-                    s.parent.cPM[(s.pDice%6) - 1] = [s.pPawn,s.pMove]
-    for s in KL[-2]:
-        if s.pPawn > 6:
-            break;
-        for d in range(1,7):
-            if abs(s.cPawnSecond[d-1]) != INFTY:
-                if random.random() + bPro*0.90 < 1:
-                    s.cPawn[d-1] = s.cPawnSecond[d-1]
-                    s.cPM[d-1] = s.cPMSecond[d-1]
-    for i in range(len(KL)-2,0,-1):
-        for s in KL[i]:
-            score = getSum(s.cPawn)
-            if s.pPawn > 6:
-                if score < s.parent.cPawn[(s.pDice%6)-1]:
-                    s.parent.cPawnSecond[s.pDice%6-1] = s.parent.cPawn[s.pDice%6 - 1]
-                    s.parent.cPawn[s.pDice%6 - 1] = score
-                    if i == 1:
-                        s.parent.cPMSecond[s.pDice%6 -1] = s.parent.cPM[(s.pDice%6) - 1]
-                        s.parent.cPM[(s.pDice%6) - 1] = [s.pPawn,s.pMove]
-            else:
-                if score > s.parent.cPawn[s.pDice-1]:
-                    s.parent.cPawnSecond[s.pDice%6-1] = s.parent.cPawn[s.pDice%6 - 1]
-                    s.parent.cPawn[s.pDice%6 - 1] = score
-                    if i == 1:
-                        s.parent.cPMSecond[s.pDice%6 -1] = s.parent.cPM[(s.pDice%6) - 1]
-                        s.parent.cPM[(s.pDice%6) - 1] = [s.pPawn,s.pMove]
-        for s in KL[i]:
-            if s.pPawn > 6:
-                break;
-            for d in range(1,7):
-                if abs(s.cPawnSecond[d-1]) != INFTY:
-                    if random.random() + bPro*0.90 < 1:
-                        s.cPawn[d-1] = s.cPMSecond[d-1]
-                        s.cPM[d-1] = s.cPMSecond[d-1]
-    return KL[0]
-def redByBeyes(ans, lastInfo, k=2.2, lam=5, STEP=2):
-    global myGuess,matchPro
-    if lastInfo != []:
-        if check(lastInfo):
-            matchPro = updatePro(matchPro,1)
-        else:
-            matchPro = updatePro(matchPro,0)
-    #print(matchPro)
-    maxValue = theValue = -INFTY
-    bestp = 0;
-    bestm = '';
-    move = ['right','down','rightdown']
-    KL = []
-    SL = []
-    for p in ans:
-        for m in move:
-            newStatus = tryMakeMove(p,m,S);
-            if newStatus is not False:
-                SL.append(newStatus)
-    STEP -= 1
-    if len(SL) == 1:
-        bestp,bestm = SL[0].pPawn, SL[0].pMove
-    else:
-        KL.append(SL)
-        for i in range(STEP):
-            NL = getTheNextStepStatus(KL[-1])
-            KL.append(NL)
-        KL = BeyesGoBack(KL, rPro=1, bPro=1)
-        for s in KL:
-            theValue = getSum(s.cPawn)
-            if theValue > maxValue:
-                maxValue,bestp,bestm = theValue,s.pPawn,s.pMove
-                myGuess = s
-    return bestp,bestm
-def check(lastInfo):
-    n,p,m = lastInfo
-    if myGuess.cPM[n%6-1] == []:
-        return False
-    if myGuess.cPM[n%6-1][0] == p and myGuess.cPM[n%6-1][1] == m:
-        return True
-    return False
-def updatePro(matchPro,flag):
-    Pb = matchPro
-    Pfb = 1-matchPro
-    Pab = 0.90
-    Pfab = 1-Pab
-    Pafb = 0.55
-    Pfafb = 1-Pafb
-    if flag:
-        Pa = Pab * Pb + Pafb * Pfb
-        Pb = (Pab * Pb)/Pa
-    else:
-        Pfa = Pfab * Pb + Pfafb * Pfb
-        Pb = (Pfab * Pb)/Pfa
-    Pb = min(0.9645,max(Pb,0.6555))
-    return Pb
-
-
-def decideRedHowToMove(ans):  # 人类选手决定如何行棋
-    p = 0
-    while True:
-        PawnMoveTo = None
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                terminate()
-            elif event.type == KEYDOWN:
-                if len(ans) > 1:
-                    if event.key == K_1:
-                        p = 1
-                    elif event.key == K_2:
-                        p = 2
-                    elif event.key == K_3:
-                        p = 3
-                    elif event.key == K_4:
-                        p = 4
-                    elif event.key == K_5:
-                        p = 5
-                    elif event.key == K_6:
-                        p = 6
-                else:
-                    p = ans[0]
-                if p != 0:
-                    if p in ans:
-                        showSelected(p)
-                        if event.key == K_w:
-                            PawnMoveTo = RIGHT
-                        elif event.key == K_a:
-                            PawnMoveTo = DOWN
-                        elif event.key == K_s:
-                            PawnMoveTo = RIGHTDOWN
-        if PawnMoveTo != None:
-            newS = tryMakeMove(p, PawnMoveTo, S)
-            if newS is not False:
-                return p, PawnMoveTo
-
-
 # 20190302 socket 移动棋子,如果走错直接输
 def socketToMove(conn,n, ans, S):
     message = str(S.map) + '|' + str(n)
@@ -1700,9 +1084,7 @@ def socketToMove(conn,n, ans, S):
                     return p, moveTo
     return -1, 'not move'
 
-
 def playGame(Red, Blue, detail, conn):
-
     lastInfo = []
     mapNeedRedraw = True  # 是否需要重新绘制地图
 
@@ -1723,29 +1105,11 @@ def playGame(Red, Blue, detail, conn):
             if event.type == QUIT:
                 terminate()
 
-
         if COUNT % 2 == 0:
-            if Red == 'BetaCat1.0':
-                p, moveTo = redByMinimax(ans)
-            if Red == 'Uct':
-                p, moveTo = redByUctPlusDemo(ans)
             if Red == 'Nerual_Uct':
                 p, moveTo = redByNeuralUCT(ans)
-            if Red == 'Socket':
-                try:
-                    p, moveTo = socketToMove(conn=conn,n=n, ans=ans, S=S)
-                    if p == -1:
-                        logger.info('RESULT : ' + ID + 'WIN')
-                        return BLUEWIN
-                except socket.error as e:
-                    logger.info('RESULT : ' + ID + 'WIN')
-                    return BLUEWIN
-                except ValueError as e1:
-                    logger.info('RESULT : ' + ID + 'WIN')
-                    return BLUEWIN
 
         if COUNT % 2 == 1:
-
             if Blue == 'Socket':
                 try:
                     p, moveTo = socketToMove(conn=conn, n=n, ans=ans, S=S)
@@ -1758,10 +1122,6 @@ def playGame(Red, Blue, detail, conn):
                 except ValueError as e1:
                     logger.info('RESULT : REDWIN')
                     return REDWIN
-
-
-            if Blue == 'Demo':
-                p, moveTo = blueByDemo(ans)
 
         if moveTo != None:
             moved = makeMove(p, moveTo)
@@ -1776,15 +1136,14 @@ def playGame(Red, Blue, detail, conn):
 
         result = isEnd(S)  # 检查游戏是否结束，返回游戏结果
 
-
         if result:
             lastInfo = []
             logger.info('RESULT : REDWIN' if result == 1 else 'RESULT : ' + ID + 'WIN')
             return result
 
-
 def startGame(Red, Blue, n, filename, detail=True):
     global COUNT
+    global S
     global playsr
     global winsr
     init()
@@ -1811,12 +1170,12 @@ def startGame(Red, Blue, n, filename, detail=True):
         winsr = {}
         result = playGame(Red, Blue, detail, conn)  # 游戏开始，返回比赛结果
         gc.collect()
+        del S
         del winsr
         del playsr
         if detail:
             #pass
             drawWinScreen(result)
-
 
         RESULT[result-1] += 1                       # 更新比分
         cnt -= 1
@@ -1856,6 +1215,6 @@ if __name__ == '__main__':
     print(filename)
     # 测试局数
     cnt = 100
-    temperature = 0.1
-    result = startGame(Red, Blue, cnt, filename, detail=True)
+    # temperature = 0.1
+    result = startGame(Red, Blue, cnt, filename, detail=False)
     input('wait')
