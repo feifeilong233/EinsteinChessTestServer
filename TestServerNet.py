@@ -50,7 +50,7 @@ RESULT = [0, 0]  # 记录比赛结果
 WINSIZE = (530, 130)  # 显示比赛结果窗口大小
 INFTY = 10000
 SLEEPTIME = 0
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0620.log')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0619.log')
 logger = logging.getLogger()
 ch = logging.StreamHandler() #日志输出到屏幕控制台
 ch.setLevel(logging.INFO) #设置日志等级
@@ -695,7 +695,7 @@ def redByNeuralUCT(ans):
     # global recorder
     # global Vsr_all
     # print("red can move ", ans)
-    calculation_time = float(15)
+    calculation_time = float(10)
     move = ['right', 'down', 'rightdown']
     Vsr = {}
     Vsr_all = {}
@@ -719,7 +719,7 @@ def redByNeuralUCT(ans):
     games = 0
     begin = time.time()
     playsr[S] = 0
-    num_process = 4  # 多进程数目
+    num_process = 8  # 多进程数目
     pool = mp.Pool(processes=num_process)  # 进程池
 
     while time.time() - begin < calculation_time:  # time.time() - begin < calculation_time
