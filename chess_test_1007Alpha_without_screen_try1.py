@@ -2445,7 +2445,7 @@ def redByNeuralUCT(ans):
     games = 0
     begin = time.time()
     playsr[S] = 0
-    num_process = 1  # 多进程数目
+    num_process = 2  # 多进程数目
     pool = mp.Pool(processes=num_process)  # 进程池
 
     while time.time() - begin < calculation_time:  # time.time() - begin < calculation_time

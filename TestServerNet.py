@@ -695,7 +695,7 @@ def redByNeuralUCT(ans):
     # global recorder
     # global Vsr_all
     # print("red can move ", ans)
-    calculation_time = float(10)
+    calculation_time = float(15)
     move = ['right', 'down', 'rightdown']
     Vsr = {}
     Vsr_all = {}
@@ -786,12 +786,12 @@ def redByNeuralUCT(ans):
     bestp = move_choose.pPawn
     bestm = move_choose.pMove
 
-    # for move in SL:
-    #     print(playsr.get(move, 0))
-    # for move1 in SL:
-    #     print(Tempt.get(move1, 0))
-    # for move in SL:
-    #     print("the valuenet total is", Vsr.get(move,0))
+    for move in SL:
+        print(playsr.get(move, 0))
+    for move1 in SL:
+        print(Tempt.get(move1, 0))
+    for move in SL:
+        print("the valuenet total is", Vsr.get(move,0))
 
     print('we have searched for ', games)
     # print('bestp=', bestp, ' bestm=', bestm)
@@ -1087,6 +1087,7 @@ def socketToMove(conn,n, ans, S):
 def playGame(Red, Blue, detail, conn):
     lastInfo = []
     mapNeedRedraw = True  # 是否需要重新绘制地图
+    movered_moveblue = {'right': 'left', 'down': 'up', 'rightdown': 'leftup'}
 
     if detail:
         drawGameScreen(Red, Blue)
@@ -1109,6 +1110,19 @@ def playGame(Red, Blue, detail, conn):
             if Red == 'Nerual_Uct':
                 p, moveTo = redByNeuralUCT(ans)
 
+            if Red == 'Socket':
+                try:
+                    p, moveTo = socketToMove(conn=conn,n=n, ans=ans, S=S)
+                    if p == -1:
+                        logger.info('RESULT : ' + ID + 'WIN')
+                        return BLUEWIN
+                except socket.error as e:
+                    logger.info('RESULT : ' + ID + 'WIN')
+                    return BLUEWIN
+                except ValueError as e1:
+                    logger.info('RESULT : ' + ID + 'WIN')
+                    return BLUEWIN
+
         if COUNT % 2 == 1:
             if Blue == 'Socket':
                 try:
@@ -1122,6 +1136,10 @@ def playGame(Red, Blue, detail, conn):
                 except ValueError as e1:
                     logger.info('RESULT : REDWIN')
                     return REDWIN
+
+            if Blue == 'Nerual_Uct':
+                p, moveTo = redByNeuralUCT(ans)
+                moveTo = movered_moveblue[moveTo]
 
         if moveTo != None:
             moved = makeMove(p, moveTo)
