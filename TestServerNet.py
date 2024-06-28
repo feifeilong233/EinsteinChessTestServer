@@ -283,6 +283,7 @@ def selectPawn(S,n=0):  # 掷骰子，挑选可以移动的棋子
             n = random.randint(7, 12)
         ans = findNearby(n, S.pawn)
     else:
+        COUNT += 1
         ans = findNearby(n, S.pawn)
     return n, ans
 
@@ -829,7 +830,7 @@ def run_simulation_network(inputs):  # 红方
 
     temperature = 0.1
     temperature_demo = 2.0
-    count = 0  # 同 COUNT
+    count = 1  # 同 COUNT
 
     Qsr = {}
     # availables = SL  # 合法后继
@@ -1110,19 +1111,6 @@ def playGame(Red, Blue, detail, conn):
             if Red == 'Nerual_Uct':
                 p, moveTo = redByNeuralUCT(ans)
 
-            if Red == 'Socket':
-                try:
-                    p, moveTo = socketToMove(conn=conn,n=n, ans=ans, S=S)
-                    if p == -1:
-                        logger.info('RESULT : ' + ID + 'WIN')
-                        return BLUEWIN
-                except socket.error as e:
-                    logger.info('RESULT : ' + ID + 'WIN')
-                    return BLUEWIN
-                except ValueError as e1:
-                    logger.info('RESULT : ' + ID + 'WIN')
-                    return BLUEWIN
-
         if COUNT % 2 == 1:
             if Blue == 'Socket':
                 try:
@@ -1136,10 +1124,6 @@ def playGame(Red, Blue, detail, conn):
                 except ValueError as e1:
                     logger.info('RESULT : REDWIN')
                     return REDWIN
-
-            if Blue == 'Nerual_Uct':
-                p, moveTo = redByNeuralUCT(ans)
-                moveTo = movered_moveblue[moveTo]
 
         if moveTo != None:
             moved = makeMove(p, moveTo)
@@ -1229,8 +1213,8 @@ if __name__ == '__main__':
     首先启动此程序
     '''
     mp.set_start_method('spawn')
-    Red = 'Nerual_Uct'
-    Blue = 'Socket'
+    Red = 'Socket'
+    Blue = 'Nerual_Uct'
     filename = os.getcwd() + "\\data\\" + Red + 'Vs' + Blue
     print(filename)
     # 测试局数
