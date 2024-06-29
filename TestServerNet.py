@@ -36,7 +36,7 @@ POSAYST = (365, 0)  # 爱因斯坦头像位置
 STEP = 60  # 步长：棋子走一步移动的距离
 TEXTSIZE = 30  # 标题文字大小
 TIPSIZE = 15  # 提示文字大小
-COUNT = -1  # 记录当前回合
+COUNT = 0  # 记录当前回合
 START = 65  # 棋盘左上角起始点（70，70）
 REDWIN = 1  # 代表RED方赢
 BLUEWIN = 2  # 代表玩家BLUE方赢
@@ -283,7 +283,6 @@ def selectPawn(S,n=0):  # 掷骰子，挑选可以移动的棋子
             n = random.randint(7, 12)
         ans = findNearby(n, S.pawn)
     else:
-        COUNT += 1
         ans = findNearby(n, S.pawn)
     return n, ans
 
@@ -720,7 +719,7 @@ def redByNeuralUCT(ans):
     games = 0
     begin = time.time()
     playsr[S] = 0
-    num_process = 8  # 多进程数目
+    num_process = 2  # 多进程数目
     pool = mp.Pool(processes=num_process)  # 进程池
 
     while time.time() - begin < calculation_time:  # time.time() - begin < calculation_time
@@ -830,7 +829,7 @@ def run_simulation_network(inputs):  # 红方
 
     temperature = 0.1
     temperature_demo = 2.0
-    count = 1  # 同 COUNT
+    count = 0  # 同 COUNT
 
     Qsr = {}
     # availables = SL  # 合法后继
@@ -1213,8 +1212,8 @@ if __name__ == '__main__':
     首先启动此程序
     '''
     mp.set_start_method('spawn')
-    Red = 'Socket'
-    Blue = 'Nerual_Uct'
+    Red = 'Nerual_Uct'
+    Blue = 'Socket'
     filename = os.getcwd() + "\\data\\" + Red + 'Vs' + Blue
     print(filename)
     # 测试局数
