@@ -36,7 +36,7 @@ POSAYST = (365, 0)  # 爱因斯坦头像位置
 STEP = 60  # 步长：棋子走一步移动的距离
 TEXTSIZE = 30  # 标题文字大小
 TIPSIZE = 15  # 提示文字大小
-COUNT = 0  # 记录当前回合
+COUNT = -1  # 记录当前回合
 START = 65  # 棋盘左上角起始点（70，70）
 REDWIN = 1  # 代表RED方赢
 BLUEWIN = 2  # 代表玩家BLUE方赢
@@ -50,7 +50,7 @@ RESULT = [0, 0]  # 记录比赛结果
 WINSIZE = (530, 130)  # 显示比赛结果窗口大小
 INFTY = 10000
 SLEEPTIME = 0
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0619.log')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s- %(levelname)s - %(message)s', filename='TestServer0703.log')
 logger = logging.getLogger()
 ch = logging.StreamHandler() #日志输出到屏幕控制台
 ch.setLevel(logging.INFO) #设置日志等级
